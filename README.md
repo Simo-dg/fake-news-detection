@@ -125,7 +125,7 @@ It contains 21,417 real and 23,481 fake news articles collected from verified so
 ## 👨‍💻 Author
 
 **Simone De Giorgi**  
-📍 MSc — Economics and data science 
+📍 MSc — Economics (ML focus)
 💼 GitHub → [https://github.com/Simo-dg](https://github.com/Simo-dg)  
 🤗 Hugging Face → [https://huggingface.co/Simingasa](https://huggingface.co/Simingasa)
 
