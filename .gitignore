@@ -4,4 +4,5 @@ models/
 *.bin
 *.pt
 *.npy
-plots/
+*.DS_Store
+__pycache__/
