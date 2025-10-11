@@ -45,7 +45,7 @@ def load_bert_base():
 @st.cache_resource
 def load_bert_ft():
     from transformers import AutoTokenizer, AutoModelForSequenceClassification
-    model_id = "Simo-dg/fake-news-bert-finetuned"
+    model_id = "Simingasa/fake-news-bert-finetuned"
     tok = AutoTokenizer.from_pretrained(model_id)
     mdl = AutoModelForSequenceClassification.from_pretrained(model_id)
     return tok, mdl

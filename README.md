@@ -46,14 +46,10 @@ Load it directly in Python:
 ```python
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-model_id = "Simo-dg/fake-news-bert-finetuned"
+model_id = "Simingasa/fake-news-bert-finetuned"
 tok = AutoTokenizer.from_pretrained(model_id)
 mdl = AutoModelForSequenceClassification.from_pretrained(model_id)
 
-text = "NASA announced a new launch window for its Artemis I mission."
-inputs = tok(text, return_tensors="pt", truncation=True)
-probs = mdl(**inputs).logits.softmax(-1)
-print("REAL:", probs[0][0].item(), "FAKE:", probs[0][1].item())
 ```
 
 ---
@@ -83,19 +79,6 @@ fake-news-detection/
 └── README.md
 ```
 
----
-
-## 📊 Evaluation
-Generate all metrics and plots:
-```bash
-python evaluate_models.py
-```
-
-Generated outputs:
-- `plots/cm_tfidf.png`
-- `plots/cm_bert_base.png`
-- `plots/cm_bert_ft.png`
-- `plots/compare_roc_test_only.png`
 
 ---
 
@@ -122,8 +105,8 @@ streamlit run app.py
 
 ## 🧩 Dataset
 
-Dataset: [Fake and Real News Dataset (Kaggle)](https://www.kaggle.com/clmentbisaillon/fake-and-real-news-dataset)  
-It contains 23,481 real and 23,481 fake news articles collected from verified sources.
+Dataset: [Fake News Detection Datasets (Kaggle)](https://www.kaggle.com/datasets/emineyetm/fake-news-detection-datasets/data)  
+It contains 21,417 real and 23,481 fake news articles collected from verified sources.
 
 ---
 
@@ -142,7 +125,7 @@ It contains 23,481 real and 23,481 fake news articles collected from verified so
 ## 👨‍💻 Author
 
 **Simone De Giorgi**  
-📍 MSc — ESS 
+📍 MSc — Economics and data science 
 💼 GitHub → [https://github.com/Simo-dg](https://github.com/Simo-dg)  
 🤗 Hugging Face → [https://huggingface.co/Simingasa](https://huggingface.co/Simingasa)
 
