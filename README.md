@@ -79,7 +79,6 @@ fake-news-detection/
 └── README.md
 ```
 
-
 ---
 
 ## 🧠 Example Predictions
@@ -125,7 +124,7 @@ It contains 21,417 real and 23,481 fake news articles collected from verified so
 ## 👨‍💻 Author
 
 **Simone De Giorgi**  
-📍 MSc — Economics (ML focus)
+📍 MSc — Economics and data science 
 💼 GitHub → [https://github.com/Simo-dg](https://github.com/Simo-dg)  
 🤗 Hugging Face → [https://huggingface.co/Simingasa](https://huggingface.co/Simingasa)
 
