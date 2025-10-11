@@ -44,9 +44,13 @@ def load_bert_base():
 
 @st.cache_resource
 def load_bert_ft():
-    tok = AutoTokenizer.from_pretrained(MODELS/"bert_finetuned")
-    mdl = AutoModelForSequenceClassification.from_pretrained(MODELS/"bert_finetuned")
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    model_id = "Simo-dg/fake-news-bert-finetuned"
+    tok = AutoTokenizer.from_pretrained(model_id)
+    mdl = AutoModelForSequenceClassification.from_pretrained(model_id)
     return tok, mdl
+
+
 
 def embed_mean(enc_out, attn_mask):
     # enc_out: last_hidden_state [B,T,H]; attn_mask [B,T]
