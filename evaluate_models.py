@@ -21,7 +21,8 @@ PLOTS = BASE / "plots"; PLOTS.mkdir(exist_ok=True)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.float16 if torch.cuda.is_available() else torch.float32
 BATCH = 64 if torch.cuda.is_available() else 32
-MAX_LEN = 256  # speed-up a lot vs 512
+MAX_LEN = 512  # Usa 512 come nel training
+CHUNK_OVERLAP = 128  # Stesso overlap del training
 
 def plot_roc(y, proba_dict, out):
     plt.figure(figsize=(6,5))
@@ -47,18 +48,50 @@ def iter_batches(lst, bs):
         yield lst[i:i+bs]
 
 def infer_finetuned(texts):
+    """
+    Inferenza con chunking e aggregazione come nel training.
+    Processa ogni testo in chunks e aggrega i logits.
+    """
     tok = AutoTokenizer.from_pretrained(MODELS/"bert_finetuned")
     mdl = AutoModelForSequenceClassification.from_pretrained(MODELS/"bert_finetuned")
     mdl.to(DEVICE, dtype=DTYPE).eval()
-    probs, preds = [], []
+    
+    all_preds = []
+    all_probs = []
+    
     with torch.inference_mode():
-        for batch in iter_batches(texts, BATCH):
-            enc = tok(batch, truncation=True, padding=True, max_length=MAX_LEN, return_tensors="pt").to(DEVICE)
-            out = mdl(**enc).logits.softmax(-1)
-            probs.append(out[:,1].detach().cpu().numpy())
-            preds.append(out.argmax(-1).detach().cpu().numpy())
-    p1 = np.concatenate(probs); pr = np.concatenate(preds)
-    return pr, p1
+        for text in texts:
+            # Tokenizza con chunking (come nel training)
+            encoded = tok(
+                text,
+                truncation=True,
+                max_length=MAX_LEN,
+                stride=CHUNK_OVERLAP,
+                return_overflowing_tokens=True,
+                padding=False
+            )
+            
+            # Processa ogni chunk
+            chunk_logits = []
+            num_chunks = len(encoded["input_ids"])
+            
+            for i in range(num_chunks):
+                chunk_input = {
+                    "input_ids": torch.tensor([encoded["input_ids"][i]]).to(DEVICE),
+                    "attention_mask": torch.tensor([encoded["attention_mask"][i]]).to(DEVICE)
+                }
+                out = mdl(**chunk_input).logits[0]
+                chunk_logits.append(out.detach().cpu().numpy())
+            
+            # Aggrega i logits (media) come nel training
+            doc_logits = np.mean(chunk_logits, axis=0)
+            doc_prob = np.exp(doc_logits) / np.sum(np.exp(doc_logits))  # softmax
+            doc_pred = np.argmax(doc_logits)
+            
+            all_probs.append(doc_prob[1])  # probabilità classe FAKE
+            all_preds.append(doc_pred)
+    
+    return np.array(all_preds), np.array(all_probs)
 
 def embed_frozen(texts, hf_model, cache_path):
     # cache to avoid recomputing

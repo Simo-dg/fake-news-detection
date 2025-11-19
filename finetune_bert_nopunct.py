@@ -34,17 +34,24 @@ print(f"Using device: {device}")
 
 def clean_text(text):
     """
-    Removes data artifacts that cause the model to 'cheat'.
-    Removes signatures like 'WASHINGTON (Reuters) - '
+    Removes data artifacts and ALL punctuation to force semantic learning.
     """
     if not isinstance(text, str): return ""
     
-    # Remove "WASHINGTON (Reuters) -" patterns
+    # 1. Remove Source Artifacts (Reuters/AP headers)
+    # We do this BEFORE removing punctuation, otherwise the regex won't match " (Reuters)"
     text = re.sub(r'^[A-Z\s\.,]+ \((Reuters|AP|AFP|CNN)\)\s*-\s*', '', text)
-    # Remove generic location headers "LONDON -"
-    text = re.sub(r'^[A-Z\s]{3,}\s+-\s*', '', text)
-    # Remove Twitter handles often found in fake news
-    text = re.sub(r'@\w+', '', text)
+    text = re.sub(r'^[A-Z\s]{3,}\s+-\s*', '', text) # Generic "LONDON -"
+    text = re.sub(r'@\w+', '', text) # Twitter handles
+    
+    # 2. Remove Punctuation
+    # Pattern: [^\w\s] matches anything that is NOT a word char (letters/numbers) or whitespace
+    # We replace with a SPACE to prevent "Hello,world" becoming "Helloworld"
+    text = re.sub(r'[^\w\s]', ' ', text)
+    
+    # 3. Collapse multiple spaces
+    # Removing punctuation often leaves double spaces ("  ")
+    text = re.sub(r'\s+', ' ', text)
     
     return text.strip()
 
