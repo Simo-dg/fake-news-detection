@@ -45,6 +45,30 @@ streamlit run app.py
   - Attention heatmaps
   - External fact-checking (NLI-style) cues
 
+An example of a true article you can test: (from BBC News)
+
+> The first official data in weeks on the US job market is out, and it showed a surprising pick-up in hiring after a lacklustre summer.
+> Employers added 119,000 jobs in September, more than double what many analysts had expected, but the unemployment rate ticked up from 4.3% to 4.4%, the Labor Department figures showed.
+> The US government shutdown, which ended last week after more than a month, had delayed publication of the figures for nearly seven weeks, leaving policymakers guessing about the state of the job market at a delicate moment.
+> Job growth has barely budged since April, raising pressure on the central bank to cut interest rates to support the economy.
+> But policymakers at the US central bank, the Federal Reserve, have been divided about the need for further interest rate cuts. In addition to the health of the job market, they are also monitoring price inflation that ticked up to 3% in September, above the 2% rate the bank wants to see.
+> Looming over the debate are questions like whether artificial intelligence (AI) will dampen demand for workers over the long term and how a crackdown on immigration is changing labour supply and demand.
+> Businesses are also wrestling with cutbacks to government spending, new tariff costs and uncertain consumer demand.
+> A private report this month by outplacement firm Challenger, Gray & Christmas found the number of job cuts in October hit the highest number for the month since 2003, as high-profile companies including Amazon, Target and UPS announced reductions.
+> On Thursday, telecoms giant Verizon also said it was cutting more than 13,000 jobs, citing in part "changes in technology and in the economy" for the move.
+> The announcements have raised concerns about cracks in what has been seen as a "low-hire, low-fire" job market.
+> But evidence of wider deterioration has been elusive, as claims for unemployment benefits remain stable.
+> Health care firms, restaurants and bars led the job gains in September, while transportation and warehousing firms, manufacturers and the government shed jobs.
+> "The September jobs report may be backward looking but offers reassurance that the labour market wasn't crumbling before the government shutdown," said Nancy Vanden Houten, lead economist at Oxford Economics.
+> However, she noted noting that the data from October is likely to be weaker, due to government layoffs.
+> Limited hiring has already prompted the ranks of people without work more than six months to swell this year, though their numbers dipped a bit in September.
+> Unusually, the strains have been particularly pronounced among those with college degrees. The unemployment rate for that group rose to 2.8% in September, up from from 2.3% a year earlier.
+> "It's been pretty challenging," said Mason Leposavic, who has applied to thousands of jobs since graduating in May 2024 from the Rochester Institute of Technology.
+
+An example of a fake article you can test:(from a report of the European Commission)
+
+> VATICAN CITY – News outlets around the world are reporting on the news that Pope Francis has made the unprecedented decision to endorse a US presidential candidate. His statement in support of Donald Trump was released from the Vatican this evening: “I have been hesitant to offer any kind of support for either candidate in the US presidential election but I now feel that to not voice my concern would be a dereliction of my duty as the Holy See. A strong and free America is vitally important in maintaining a strong and free world and in that sense what happens in American elections affects us all. The Rule of Law is the backbone of the American government as it is in any nation that strives for freedom and I now fear that the Rule of Law in America has been dealt a dangerous blow. The FBI, in refusing to recommend prosecution after admitting that the law had been broken on multiple occasions by Secretary Clinton, has exposed itself as corrupted by political forces that have become far too powerful. Though I don’t agree with Mr. Trump on some issues, I feel that voting against the powerful political forces that have corrupted the entire American federal government is the only option for a nation that desires a government that is truly for the people and by the people. For this primary reason I ask, not as the Holy Father, but as a concerned citizen of the world that Americans vote for Donald Trump for President of the United States.” Sources within the Vatican reportedly were aware that the Pope had been discussing the possibility of voicing his concern in the US presidential election but apparently were completely unaware that he had made a decision on going forward with voicing this concern until his statement was released this evening from the Vatican. Stay tuned to WTOE 5 News for more on this breaking news.
+
 ---
 
 ## 🧭 Project Structure
@@ -138,7 +162,7 @@ python src/visualize_topics.py
 
 ---
 
-## 🧪 Forensic Cleaning (V12 Strict)
+## 🧪 Cleaning
 
 To prevent metadata leakage and date-based shortcuts, we remove:
 
@@ -220,12 +244,6 @@ Typical stack (subset): `transformers`, `torch`, `huggingface_hub`, `scikit-lear
 
 - **Topic modeling errors**  
   Ensure `umap-learn` and `hdbscan` are installed (if you use HDBSCAN-based clustering).
-
----
-
-## 📜 License
-
-This project is released under the **MIT License**. See `LICENSE` for details.
 
 ---
 
