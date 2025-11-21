@@ -81,7 +81,8 @@ TruthLens/
 ├── src/
 │   ├── config.py              # Paths & hyperparameters
 │   ├── create_balanced_dataset.py  # Data balancing pipeline
-│   ├── train_bert_v2.py       # MAIN training (Forensic BERT, V12 Strict)
+│   ├── train_bert_v1.py       # INITIAL training (Forensic BERT, V1 Punctuation Removal)
+│   ├── train_bert_v2.py       # MAIN training (Forensic BERT, Strict cleaning)
 │   ├── train_tfidf.py         # TF-IDF + Logistic Regression baseline
 │   ├── train_topics.py        # BERTopic training
 │   ├── evaluate_models.py     # Confusion matrices, ROC, calibration
