@@ -10,4 +10,15 @@ upload_folder(
     repo_type="model"
 )
 
-print("✅ Uploaded! View at: https://huggingface.co/Simo-dg/fake-news-bert-finetuned")
+repo_id2 = "Simingasa/fake-news-bert-v2"
+create_repo(repo_id2, private=False, exist_ok=True)
+
+upload_folder(
+    folder_path="models/bert_final",
+    repo_id=repo_id2,
+    repo_type="model"
+)
+
+
+print("✅ Uploaded! View at: https://huggingface.co/Simingasa/fake-news-bert-finetuned")
+print("✅ Uploaded! View at: https://huggingface.co/Simingasa/fake-news-bert-v2")

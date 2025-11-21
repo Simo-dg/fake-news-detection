@@ -22,6 +22,7 @@ MODELS = BASE / "models"
 
 # Model Paths
 HF_MODEL_ID = "Simingasa/fake-news-bert-finetuned"
+HF_MODEL_ID_V2 = "Simingasa/fake-news-bert-v2"
 LOCAL_MODEL_PATH = MODELS / "bert_final"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -99,11 +100,11 @@ def load_bert_models():
 
     # New V12
     try:
-        if LOCAL_MODEL_PATH.exists():
-            tok_new = AutoTokenizer.from_pretrained(LOCAL_MODEL_PATH)
-            mdl_new = AutoModelForSequenceClassification.from_pretrained(LOCAL_MODEL_PATH).to(DEVICE)
-            mdl_new.eval()
-            models['new'] = (tok_new, mdl_new)
+        print(f"Downloading V2 Model: {HF_MODEL_ID_V2}...")
+        tok_new = AutoTokenizer.from_pretrained(HF_MODEL_ID_V2)
+        mdl_new = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_ID_V2).to(DEVICE)
+        mdl_new.eval()
+        models['new'] = (tok_new, mdl_new)
     except Exception: pass
     return models
 
