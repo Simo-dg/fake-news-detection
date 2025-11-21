@@ -5,12 +5,14 @@ import torch
 import streamlit as st
 import matplotlib.pyplot as plt
 import joblib
+import pandas as pd
 from pathlib import Path
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from sentence_transformers import CrossEncoder
 from duckduckgo_search import DDGS
 from matplotlib.cm import Blues
 from urllib.parse import urlparse
+from bertopic import BERTopic
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="🛡️ TruthLens Command Center", layout="wide", initial_sidebar_state="collapsed")
@@ -19,8 +21,8 @@ BASE = Path(__file__).parent.resolve()
 MODELS = BASE / "models"
 
 # Model Paths
-HF_MODEL_ID = "Simingasa/fake-news-bert-finetuned"  # The Old Model
-LOCAL_MODEL_PATH = MODELS / "bert_final"            # Your New V12 Model
+HF_MODEL_ID = "Simingasa/fake-news-bert-finetuned"
+LOCAL_MODEL_PATH = MODELS / "bert_final"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 MAX_LENGTH = 512
@@ -32,53 +34,47 @@ st.markdown("""
     .main { background-color: #f9f9f9; }
     .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #eee; }
     h1 { color: #1E1E1E; font-family: 'Helvetica Neue', sans-serif; }
-    .source-tag { padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; color: white; }
-    .verdict-box { padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
-    .small { font-size: 0.9em; color: #666; }
+    .verdict-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge-sup { background-color: #e6f4ea; color: #1e8e3e; border: 1px solid #1e8e3e; }
+    .badge-ref { background-color: #fce8e6; color: #d93025; border: 1px solid #d93025; }
+    .badge-neu { background-color: #f1f3f4; color: #5f6368; border: 1px solid #5f6368; }
+    .source-card { background-color: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1) CLEANING FUNCTION (REQUIRED FOR NEW MODEL) ---
+# --- 1) CLEANING FUNCTION (V12 STRICT) ---
 def clean_text_bert_v12(text):
     """
-    V12 Cleaning Logic (Must match training exactly).
-    Keeps punctuation, removes specific artifacts.
+    V12 Cleaning Logic. 
     """
     if not isinstance(text, str): return ""
-    
     text = text.lower()
     
     patterns = [
-        # Real News UI Leaks
-        r'advertisement', 
-        r'reading main', r'main story', r'continue reading',
+        r'advertisement', r'reading main', r'main story', r'continue reading',
         r'president elect', r'source text', r'rights reserved', 
         r'copyright', r'misstated', r'company coverage', r'newsletter',
-        # Fake News UI Leaks
-        r'fact box', r'story fact', r'fact check', 
-        r'add cents', r'add your two cents', 
-        r'readers think', r'view gallery', r'featured image',
-        r'read more', r'click here', r'sign up', 
+        r'fact box', r'story fact', r'fact check', r'add cents', 
+        r'add your two cents', r'readers think', r'view gallery', 
+        r'featured image', r'read more', r'click here', r'sign up', 
         r'proactiveinvestors', r'visit our', r'check out'
     ]
     combined_pattern = re.compile('|'.join(patterns))
     text = combined_pattern.sub(' ', text)
 
     meta_words = [
-        r'\bphoto\b', r'\bimage\b', r'\bcredit\b', 
-        r'\beditor\b', r'\bediting\b', r'\bwriter\b', 
-        r'\bphotograph\b', r'\bcaption\b', r'\breporting\b'
+        r'\bphoto\b', r'\bimage\b', r'\bcredit\b', r'\beditor\b', 
+        r'\bediting\b', r'\bwriter\b', r'\bphotograph\b', 
+        r'\bcaption\b', r'\breporting\b'
     ]
-    for p in meta_words:
-        text = re.sub(p, ' ', text)
+    for p in meta_words: text = re.sub(p, ' ', text)
 
     agencies = [
         r'\b(reuters|ap|afp|upi|bloomberg|cnbc|cnn|bbc|nyt|new york times|washington post)\b',
         r'\b(nytimes|breitbart|christian post|consortiumnews|daily caller)\b',
         r'\b(calif|gmt|est|pst)\b'
     ]
-    for pattern in agencies:
-        text = re.sub(pattern, ' ', text)
+    for pattern in agencies: text = re.sub(pattern, ' ', text)
 
     months = r'\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b'
     text = re.sub(months, ' ', text)
@@ -86,63 +82,54 @@ def clean_text_bert_v12(text):
     text = re.sub(r'@\w+', '', text)
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
-    
     return text
 
-# --- 2) LOADERS (CACHED) ---
+# --- 2) LOADERS ---
 
 @st.cache_resource
 def load_bert_models():
     models = {}
-    
-    # 1. Load Legacy (Hugging Face)
+    # Legacy
     try:
-        with st.spinner("🔄 Loading Legacy Model (HF)..."):
-            tok_old = AutoTokenizer.from_pretrained(HF_MODEL_ID)
-            mdl_old = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_ID).to(DEVICE)
-            mdl_old.eval()
-            models['legacy'] = (tok_old, mdl_old)
-    except Exception as e:
-        st.error(f"Legacy BERT Load Error: {e}")
+        tok_old = AutoTokenizer.from_pretrained(HF_MODEL_ID)
+        mdl_old = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_ID).to(DEVICE)
+        mdl_old.eval()
+        models['legacy'] = (tok_old, mdl_old)
+    except Exception: pass
 
-    # 2. Load New (Local V12)
+    # New V12
     try:
         if LOCAL_MODEL_PATH.exists():
-            with st.spinner("🔄 Loading New V12 Model (Local)..."):
-                tok_new = AutoTokenizer.from_pretrained(LOCAL_MODEL_PATH)
-                mdl_new = AutoModelForSequenceClassification.from_pretrained(LOCAL_MODEL_PATH).to(DEVICE)
-                mdl_new.eval()
-                models['new'] = (tok_new, mdl_new)
-        else:
-            st.warning(f"Local model not found at {LOCAL_MODEL_PATH}")
-    except Exception as e:
-        st.error(f"New BERT Load Error: {e}")
-        
+            tok_new = AutoTokenizer.from_pretrained(LOCAL_MODEL_PATH)
+            mdl_new = AutoModelForSequenceClassification.from_pretrained(LOCAL_MODEL_PATH).to(DEVICE)
+            mdl_new.eval()
+            models['new'] = (tok_new, mdl_new)
+    except Exception: pass
     return models
 
 @st.cache_resource
 def load_tfidf_model():
     path = MODELS / "tfidf_logreg_improved.joblib"
-    if path.exists(): return joblib.load(path)
-    return None
+    return joblib.load(path) if path.exists() else None
 
 @st.cache_resource
 def load_nli_model():
+    # Using DeBERTa V3 Small for NLI
+    # Labels mapping usually: 0: Contradiction, 1: Entailment, 2: Neutral
     return CrossEncoder('cross-encoder/nli-deberta-v3-small')
 
-# --- 3) PREDICTION ENGINES ---
+@st.cache_resource
+def load_bertopic_model():
+    path = MODELS / "bertopic_model"
+    if path.exists():
+        return BERTopic.load(path)
+    return None
+
+# --- 3) ANALYTICS ---
 
 def analyze_bert(text, tok, mdl):
-    """Returns prediction, probability, and attention scores."""
-    encoded = tok(
-        text,
-        truncation=True,
-        max_length=MAX_LENGTH,
-        stride=CHUNK_OVERLAP,
-        return_overflowing_tokens=True,
-        padding=False
-    )
-
+    encoded = tok(text, truncation=True, max_length=MAX_LENGTH, stride=CHUNK_OVERLAP, 
+                 return_overflowing_tokens=True, padding=False)
     chunk_logits, attentions, input_ids_list = [], [], []
 
     with torch.no_grad():
@@ -150,16 +137,11 @@ def analyze_bert(text, tok, mdl):
             inp_ids = torch.tensor([encoded["input_ids"][i]]).to(DEVICE)
             mask = torch.tensor([encoded["attention_mask"][i]]).to(DEVICE)
             try:
-                # Attempt to get attentions if supported
                 out = mdl(input_ids=inp_ids, attention_mask=mask, output_attentions=True)
                 chunk_logits.append(out.logits[0].cpu().numpy())
-                
-                #  - We calculate mean attention here
-                attn = torch.stack(out.attentions)[-1].mean(dim=1)[0] 
-                token_importance = attn.sum(dim=0).cpu().numpy()
-                attentions.append(token_importance)
-            except Exception:
-                # Fallback if attentions fail
+                attn = torch.stack(out.attentions)[-1].mean(dim=1)[0]
+                attentions.append(attn.sum(dim=0).cpu().numpy())
+            except:
                 out = mdl(input_ids=inp_ids, attention_mask=mask)
                 chunk_logits.append(out.logits[0].cpu().numpy())
                 attentions.append(np.zeros_like(inp_ids[0].cpu().numpy(), dtype=float))
@@ -173,7 +155,7 @@ def analyze_bert(text, tok, mdl):
 
     return {
         "pred": pred,
-        "prob_fake": float(probs[1]) if probs.shape[0] > 1 else 0.0,
+        "prob_fake": float(probs[1]),
         "tokens": tokens,
         "attention": attentions[0] if attentions else np.zeros(len(tokens))
     }
@@ -181,105 +163,138 @@ def analyze_bert(text, tok, mdl):
 def analyze_tfidf(text, pipeline):
     if pipeline is None: return None
     try:
-        # 
         probs = pipeline.predict_proba([text])[0]
         pred = int(np.argmax(probs))
+        
         vectorizer = pipeline.named_steps.get('tfidf', pipeline.named_steps.get('vectorizer'))
         clf = pipeline.named_steps.get('clf', pipeline.named_steps.get('logreg'))
-        if (vectorizer is None) or (clf is None):
+        
+        if not vectorizer or not clf:
             return {"pred": pred, "prob_fake": float(probs[1]), "features": []}
+
         feature_names = vectorizer.get_feature_names_out()
         coefs = clf.coef_[0]
         response = vectorizer.transform([text]).tocoo()
         feats = [(feature_names[col], val * coefs[col]) for col, val in zip(response.col, response.data)]
         feats.sort(key=lambda x: abs(x[1]), reverse=True)
-        return {"pred": pred, "prob_fake": float(probs[1]), "features": feats[:25]}
-    except Exception:
-        return None
+        return {"pred": pred, "prob_fake": float(probs[1]), "features": feats[:20]}
+    except: return None
 
-# ... [Keeping your existing SEARCH and NLI functions exactly as they were] ...
-# (I am condensing them here for brevity, assume verify_facts, perform_search, etc are unchanged)
+# --- 4) SEARCH & FACT CHECK (FIXED) ---
 
-CATEGORY_SITES = {
-    "General": ("reuters.com","apnews.com","bbc.com","nytimes.com","washingtonpost.com"),
-    "Politics": ("reuters.com","apnews.com","politico.com","whitehouse.gov","congress.gov"),
-    "Business": ("reuters.com","bloomberg.com","ft.com","wsj.com","cnbc.com"),
-    "Tech": ("reuters.com","theverge.com","wired.com","techcrunch.com"),
-    "Science": ("nature.com","science.org","nih.gov","cdc.gov"),
-    "Crypto": ("coindesk.com","cointelegraph.com","reuters.com")
-}
-REGION_OPTIONS = ["Auto","us-en","uk-en","it-it","de-de","fr-fr"]
-RECENCY_OPTIONS = {"Any time": None, "Past day": "d", "Past week": "w", "Past month": "m"}
-
-def perform_search(q, mode="text", region="us-en", timelimit=None):
+def perform_search(q, region="us-en", timelimit=None):
     results = []
     try:
         with DDGS() as ddgs:
             kwargs = dict(region=region, safesearch='moderate', max_results=5)
             if timelimit: kwargs["timelimit"] = timelimit
-            ddg_results = list(ddgs.news(q, **kwargs)) if mode=="news" else list(ddgs.text(q, **kwargs))
+            # We search for NEWS to get relevant context
+            ddg_results = list(ddgs.news(q, **kwargs))
             for r in ddg_results:
-                # Handle varying DDG response formats
                 body = r.get('body', r.get('snippet', ''))
-                link = r.get('link', r.get('href', r.get('url', '')))
-                title = r.get('title', 'Untitled')
-                source = r.get('source', 'Web')
                 if body:
-                    results.append({"text": body, "url": link, "title": title, "source_name": source})
-    except Exception: pass
+                    results.append({
+                        "text": body, 
+                        "url": r.get('url', r.get('link', '')), 
+                        "title": r.get('title', 'Untitled'), 
+                        "source": r.get('source', 'Web')
+                    })
+    except: pass
     return results
 
-def verify_facts(text, nli_model, category="General", region="us-en", timelimit=None, english_only=False, min_unique_domains=2):
-    # 
-    # Simplified version of your verify logic for brevity
-    claim = text[:200] 
-    queries = [claim]
+def verify_facts(text, nli_model, region="us-en", timelimit=None):
+    """
+    Improved verification: scores EACH article individually.
+    """
+    # Extract first 250 chars as the core claim for query
+    claim = text[:250]
+    raw_results = perform_search(claim, region=region, timelimit=timelimit)
     
-    evidence = []
-    sources_found = []
+    if not raw_results:
+        return {"status": "NO_DATA", "verdict": "UNVERIFIED", "confidence": 0.0, "evidence": []}
+
+    processed_evidence = []
     
-    # Search logic
-    raw = perform_search(claim, mode="news", region=region, timelimit=timelimit)
-    for r in raw:
-        evidence.append(r['text'])
-        sources_found.append({"text": r['text'], "url": r['url'], "source": r['source_name'], "title": r['title'], "domain": urlparse(r['url']).netloc})
-
-    if not evidence:
-        return {"status": "NO_DATA", "claim": claim, "verdict": "UNVERIFIED", "evidence": [], "confidence": 0.0}
-
-    # NLI Logic
-    pairs = [(claim, e) for e in evidence]
+    # Prepare pairs for batch prediction [Claim, Evidence 1], [Claim, Evidence 2]...
+    pairs = [(claim, r['text']) for r in raw_results]
+    
+    # Get Logits
     logits = nli_model.predict(pairs)
+    # Convert to Probs
     probs = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
-    
-    # Simple heuristic
-    entailment = probs[:, 1].max()
-    contradiction = probs[:, 0].max()
-    
-    if entailment > 0.7: verdict, conf = "VERIFIED", entailment
-    elif contradiction > 0.7: verdict, conf = "DEBUNKED", contradiction
-    else: verdict, conf = "INCONCLUSIVE", max(entailment, contradiction)
 
-    return {"status": "SUCCESS", "claim": claim, "verdict": verdict, "confidence": float(conf), "evidence": sources_found, "queries": queries}
+    # Mapping for 'cross-encoder/nli-deberta-v3-small':
+    # Index 0: Contradiction
+    # Index 1: Entailment
+    # Index 2: Neutral
+    
+    total_entail = 0.0
+    total_contra = 0.0
 
-# --- 4) VISUALIZATION HELPERS ---
+    for i, r in enumerate(raw_results):
+        p_contra = probs[i][0]
+        p_entail = probs[i][1]
+        p_neut = probs[i][2]
+        
+        # Determine individual label
+        if p_entail > 0.5: 
+            label = "SUPPORT"
+            score = p_entail
+            badge_class = "badge-sup"
+        elif p_contra > 0.5: 
+            label = "REFUTE"
+            score = p_contra
+            badge_class = "badge-ref"
+        else: 
+            label = "NEUTRAL"
+            score = p_neut
+            badge_class = "badge-neu"
+            
+        processed_evidence.append({
+            "title": r['title'],
+            "source": r['source'],
+            "url": r['url'],
+            "snippet": r['text'],
+            "label": label,
+            "score": score,
+            "badge_class": badge_class
+        })
+        
+        # Accumulate for global verdict (weighted)
+        total_entail += p_entail
+        total_contra += p_contra
+
+    # Global Verdict Logic
+    avg_entail = total_entail / len(raw_results)
+    avg_contra = total_contra / len(raw_results)
+    
+    if avg_entail > 0.4 and avg_entail > avg_contra:
+        global_verdict = "VERIFIED"
+        global_conf = avg_entail
+    elif avg_contra > 0.4 and avg_contra > avg_entail:
+        global_verdict = "DEBUNKED"
+        global_conf = avg_contra
+    else:
+        global_verdict = "INCONCLUSIVE"
+        global_conf = max(avg_entail, avg_contra)
+
+    return {
+        "status": "SUCCESS",
+        "verdict": global_verdict,
+        "confidence": global_conf,
+        "evidence": processed_evidence # Now contains per-article details
+    }
+
+# --- 5) VISUALIZATIONS ---
 
 def plot_attention_bar(tokens, scores):
-    # Filter special tokens
     clean = [(t, s) for t, s in zip(tokens, scores) if t not in ['[CLS]', '[SEP]', '[PAD]']]
     if not clean: return plt.figure()
-    
     c_tokens, c_scores = zip(*clean)
-    # Normalize
-    if len(c_scores) > 0:
-        mn, mx = min(c_scores), max(c_scores)
-        if mx > mn: c_scores = [(x - mn)/(mx - mn) for x in c_scores]
-    
     fig, ax = plt.subplots(figsize=(10, 3))
     ax.bar(range(len(c_tokens[:20])), c_scores[:20], color=Blues(c_scores[:20]))
     ax.set_xticks(range(len(c_tokens[:20])))
     ax.set_xticklabels(c_tokens[:20], rotation=45, ha='right')
-    ax.set_title("Model Attention Weights")
     ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
     plt.tight_layout()
     return fig
@@ -292,21 +307,18 @@ def plot_tfidf_importance(features):
     colors = ['#d32f2f' if s > 0 else '#388e3c' for s in scores]
     ax.barh(words, scores, color=colors)
     ax.axvline(0, color='black', linewidth=0.8)
-    ax.set_title("Top Keyword Indicators")
     plt.tight_layout()
     return fig
 
-# --- 5) MAIN UI ---
+# --- 6) MAIN DASHBOARD ---
 
 st.title("🛡️ TruthLens: Forensic News Dashboard")
-st.markdown("*Neural style (A/B Test) + Keyword forensics + Real-time fact-checking.*")
 
 with st.sidebar:
-    st.header("Controls")
-    category = st.selectbox("News category", list(CATEGORY_SITES.keys()), index=0)
-    region_sel = st.selectbox("Region", REGION_OPTIONS, index=0)
-    recency_sel = st.selectbox("Recency", list(RECENCY_OPTIONS.keys()), index=0)
-    st.info("Now running Dual-BERT Mode: Legacy vs V12")
+    st.header("Configuration")
+    region_sel = st.selectbox("Search Region", ["us-en","uk-en","it-it","de-de","fr-fr"], index=0)
+    recency_sel = st.selectbox("Recency", ["Any time", "Past day", "Past week", "Past month"], index=0)
+    recency_map = {"Any time": None, "Past day": "d", "Past week": "w", "Past month": "m"}
 
 text = st.text_area("Input Article Text", height=160, placeholder="Paste text here...")
 
@@ -314,102 +326,126 @@ if st.button("🚀 RUN ANALYSIS", type="primary", use_container_width=True):
     if not text.strip():
         st.warning("⚠️ Please enter text.")
     else:
-        # Load everything
+        # Load Models
         bert_models = load_bert_models()
         tfidf_pipe = load_tfidf_model()
         nli_mdl = load_nli_model()
-
+        bertopic_model = load_bertopic_model()
+        
         with st.spinner("🕵️‍♀️ Running Dual-Core Analysis..."):
-            # 1. Run Legacy (Raw Text)
+            # 1. Legacy BERT
             bert_res_old = None
             if 'legacy' in bert_models:
                 bert_res_old = analyze_bert(text, bert_models['legacy'][0], bert_models['legacy'][1])
             
-            # 2. Run New V12 (Cleaned Text)
+            # 2. New V12 BERT (Cleaned)
             bert_res_new = None
             if 'new' in bert_models:
-                cleaned_text = clean_text_bert_v12(text) # CRITICAL STEP
+                cleaned_text = clean_text_bert_v12(text)
                 bert_res_new = analyze_bert(cleaned_text, bert_models['new'][0], bert_models['new'][1])
 
-            # 3. Run TF-IDF and Fact Check
+            # 3. TF-IDF
             tfidf_res = analyze_tfidf(text, tfidf_pipe)
-            region = "us-en" if region_sel == "Auto" else region_sel
-            fact_res = verify_facts(text, nli_mdl, category=category, region=region, timelimit=RECENCY_OPTIONS[recency_sel])
+            
+            # 4. Fact Check (Updated with individual scoring)
+            fact_res = verify_facts(text, nli_mdl, region=region_sel, timelimit=recency_map[recency_sel])
+
+            # 5. BERTopic Analysis
+            topic_viz = None
+            topic_info = None
+            if bertopic_model:
+                topics, probs = bertopic_model.transform([text])
+                topic_id = topics[0]
+                # Get fancy Plotly viz
+                topic_viz = bertopic_model.visualize_barchart(top_n_topics=8, topics=[topic_id])
+                topic_info = bertopic_model.get_topic_info(topic_id)
 
         st.divider()
 
         # --- METRICS GRID ---
         c1, c2, c3, c4 = st.columns(4)
         
-        # Col 1: Legacy BERT
         with c1:
             st.markdown("### 👴 Legacy BERT")
             if bert_res_old:
                 lbl = "FAKE" if bert_res_old['pred'] == 1 else "REAL"
-                st.metric("Verdict", lbl, f"{bert_res_old['prob_fake']:.1%} fake-prob", 
+                st.metric("Model Verdict", lbl, f"{bert_res_old['prob_fake']:.1%} fake-prob", 
                           delta_color="inverse" if lbl == "FAKE" else "normal")
-            else:
-                st.error("Not Loaded")
 
-        # Col 2: New V12 BERT
         with c2:
             st.markdown("### 🚀 V12 BERT")
             if bert_res_new:
                 lbl = "FAKE" if bert_res_new['pred'] == 1 else "REAL"
-                st.metric("Verdict", lbl, f"{bert_res_new['prob_fake']:.1%} fake-prob", 
+                st.metric("Model Verdict", lbl, f"{bert_res_new['prob_fake']:.1%} fake-prob", 
                           delta_color="inverse" if lbl == "FAKE" else "normal")
-                if bert_res_old:
-                    # Show Diff
-                    diff = bert_res_new['prob_fake'] - bert_res_old['prob_fake']
-                    st.caption(f"Diff: {diff:+.1%} vs Legacy")
-            else:
-                st.warning("Not Found")
 
-        # Col 3: TF-IDF
         with c3:
             st.markdown("### 🧮 Keywords")
             if tfidf_res:
                 lbl = "FAKE" if tfidf_res['pred'] == 1 else "REAL"
-                st.metric("Verdict", lbl, f"{tfidf_res['prob_fake']:.1%} fake-prob", 
+                st.metric("Heuristic", lbl, f"{tfidf_res['prob_fake']:.1%} fake-prob", 
                           delta_color="inverse" if lbl == "FAKE" else "normal")
-            else:
-                st.caption("N/A")
 
-        # Col 4: Fact Check
         with c4:
             st.markdown("### 🌍 Fact Check")
             v = fact_res['verdict']
-            color = "normal" if "VERIFIED" in v or "LIKELY" in v else "inverse"
-            st.metric("Result", v, f"{fact_res['confidence']:.1%}", delta_color=color)
+            color = "normal" if v == "VERIFIED" else "inverse"
+            st.metric("Cross-Ref", v, f"{fact_res['confidence']:.1%}", delta_color=color)
 
-        # --- TABS FOR DEEP DIVE ---
-        t1, t2, t3 = st.tabs(["🧠 Attention Compare", "🧮 Features", "🌍 Evidence"])
+        # --- TABS ---
+        t1, t2, t3, t4 = st.tabs(["🧠 Attention", "🧮 Features", "🌍 Evidence & Sources", "🗂️ Semantic Topic"])
         
         with t1:
             c_old, c_new = st.columns(2)
             with c_old:
-                st.markdown("**Legacy Attention** (Raw Input)")
-                if bert_res_old:
-                    fig = plot_attention_bar(bert_res_old['tokens'], bert_res_old['attention'])
-                    st.pyplot(fig)
+                st.markdown("**Legacy Attention** (Raw)")
+                if bert_res_old: st.pyplot(plot_attention_bar(bert_res_old['tokens'], bert_res_old['attention']))
             with c_new:
-                st.markdown("**V12 Attention** (Cleaned Input)")
-                if bert_res_new:
-                    fig = plot_attention_bar(bert_res_new['tokens'], bert_res_new['attention'])
-                    st.pyplot(fig)
-                    st.info("Note: V12 sees cleaned text (no 'Reuters', dates, or artifacts).")
+                st.markdown("**V12 Attention** (Cleaned)")
+                if bert_res_new: st.pyplot(plot_attention_bar(bert_res_new['tokens'], bert_res_new['attention']))
 
         with t2:
             if tfidf_res:
-                st.markdown("**TF-IDF Feature Weights**")
-                fig = plot_tfidf_importance(tfidf_res['features'])
-                st.pyplot(fig)
+                st.markdown("**TF-IDF Top Features**")
+                st.pyplot(plot_tfidf_importance(tfidf_res['features']))
 
         with t3:
-            if fact_res.get('evidence'):
-                for idx, item in enumerate(fact_res['evidence']):
-                    st.markdown(f"**{item.get('source','Web')}**: [{item['title']}]({item['url']})")
-                    st.caption(item['text'][:300])
-                    st.divider()
+            # --- NEW IMPROVED EVIDENCE DISPLAY ---
+            st.markdown("#### Web Verification Results")
+            if fact_res['status'] == "NO_DATA":
+                st.warning("No search results found.")
             else:
-                st.warning("No evidence found.")
+                for item in fact_res['evidence']:
+                    # HTML Badge construction
+                    badge = f'<span class="verdict-badge {item["badge_class"]}">{item["label"]} ({item["score"]:.0%})</span>'
+                    
+                    with st.container():
+                        st.markdown(f"""
+                        <div class="source-card">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <b>{item['source']}</b>
+                                {badge}
+                            </div>
+                            <div style="font-size:1.1em; color:#1565c0; margin-top:5px;">
+                                <a href="{item['url']}" target="_blank" style="text-decoration:none;">{item['title']}</a>
+                            </div>
+                            <div style="font-size:0.9em; color:#555; margin-top:5px;">
+                                {item['snippet'][:250]}...
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+        with t4:
+            # --- NEW BERTOPIC DISPLAY ---
+            if bertopic_model:
+                st.subheader(f"Topic Identification: {topic_info['Name'].values[0]}")
+                st.markdown(f"**Topic ID:** {topic_info['Topic'].values[0]} | **Count:** {topic_info['Count'].values[0]}")
+                
+                # Display the Interactive Plotly Chart
+                if topic_viz:
+                    st.plotly_chart(topic_viz, use_container_width=True)
+                
+                with st.expander("View Raw Topic Keywords"):
+                    st.dataframe(topic_info, use_container_width=True)
+            else:
+                st.warning("BERTopic model not loaded.")
