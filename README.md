@@ -110,7 +110,7 @@ python src/create_balanced_dataset.py
 
 ### 2) Model Training
 
-**Forensic BERT (V2) — Primary Model**  
+**Train BERT V1**  
 Trained with data without punctuation.
 
 ```bash
@@ -118,7 +118,7 @@ python src/train_bert_v1.py
 # Output: models/bert_finetuned/
 ```
 
-**Forensic BERT (V2) — Primary Model**  
+**Train Bert V2**  
 Trained with **Strict** cleaning to remove artifacts.
 
 ```bash
@@ -201,7 +201,7 @@ python src/upload.py
 **Train + Evaluate end-to-end**
 
 ```bash
-python src/train_bert_v2.py && python src/train_bert_v2.py  && python src/train_tfidf.py  && python src/train_topics.py  && python src/evaluate_models.py
+python src/train_bert_v1.py && python src/train_bert_v2.py  && python src/train_tfidf.py  && python src/train_topics.py  && python src/evaluate_models.py
 ```
 
 **Run Dashboard after training**
