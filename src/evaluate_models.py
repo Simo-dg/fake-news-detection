@@ -26,21 +26,18 @@ from sklearn.metrics import (
 import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import config
 
 # --- CONFIGURATION ---
-BASE = Path(__file__).parent.resolve()
-DATA = BASE / "data"
-MODELS = BASE / "models"
-PLOTS = BASE / "plots"; PLOTS.mkdir(exist_ok=True)
-
-# Specific Model Paths
-TFIDF_PATH = MODELS / "tfidf_logreg_robust.joblib"
-BERT_OLD_PATH = MODELS / "bert_finetuned"
-BERT_FINAL_PATH = MODELS / "bert_final"
-
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 32
-MAX_LEN = 512 
+DATA = config.DATA_DIR
+MODELS = config.MODELS_DIR
+PLOTS = config.PLOTS_DIR
+TFIDF_PATH = config.TFIDF_PATH
+BERT_OLD_PATH = config.BERT_OLD_PATH
+BERT_FINAL_PATH = config.BERT_FINAL_PATH
+DEVICE = config.DEVICE
+BATCH_SIZE = config.EVAL_BATCH_SIZE
+MAX_LEN = config.MAX_LEN
 
 # --- STYLING ---
 plt.style.use('seaborn-v0_8-whitegrid')

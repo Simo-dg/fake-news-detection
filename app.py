@@ -13,21 +13,22 @@ from duckduckgo_search import DDGS
 from matplotlib.cm import Blues
 from urllib.parse import urlparse
 from bertopic import BERTopic
+from src import config
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="🛡️ TruthLens Command Center", layout="wide", initial_sidebar_state="collapsed")
 
-BASE = Path(__file__).parent.resolve()
-MODELS = BASE / "models"
+
+MODELS = config.MODELS_DIR
 
 # Model Paths
-HF_MODEL_ID = "Simingasa/fake-news-bert-finetuned"
-HF_MODEL_ID_V2 = "Simingasa/fake-news-bert-v2"
+HF_MODEL_ID = config.HF_MODEL_ID
+HF_MODEL_ID_V2 = config.HF_MODEL_ID_V2
 LOCAL_MODEL_PATH = MODELS / "bert_final"
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MAX_LENGTH = 512
-CHUNK_OVERLAP = 128
+DEVICE = config.DEVICE
+MAX_LENGTH = config.MAX_LENGTH
+CHUNK_OVERLAP = config.CHUNK_OVERLAP
 
 # --- CSS STYLING ---
 st.markdown("""
@@ -44,7 +45,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 1) CLEANING FUNCTION (V12 STRICT) ---
-def clean_text_bert_v12(text):
+def clean_text_bert(text):
     """
     V12 Cleaning Logic. 
     """
@@ -110,7 +111,7 @@ def load_bert_models():
 
 @st.cache_resource
 def load_tfidf_model():
-    path = MODELS / "tfidf_logreg_improved.joblib"
+    path = MODELS / "tfidf_logreg_robust.joblib"
     return joblib.load(path) if path.exists() else None
 
 @st.cache_resource
@@ -342,7 +343,7 @@ if st.button("🚀 RUN ANALYSIS", type="primary", use_container_width=True):
             # 2. New V12 BERT (Cleaned)
             bert_res_new = None
             if 'new' in bert_models:
-                cleaned_text = clean_text_bert_v12(text)
+                cleaned_text = clean_text_bert(text)
                 bert_res_new = analyze_bert(cleaned_text, bert_models['new'][0], bert_models['new'][1])
 
             # 3. TF-IDF
@@ -381,7 +382,7 @@ if st.button("🚀 RUN ANALYSIS", type="primary", use_container_width=True):
                           delta_color="inverse" if lbl == "FAKE" else "normal")
 
         with c3:
-            st.markdown("### 🧮 Keywords")
+            st.markdown("### 🧮 TF-IDF")
             if tfidf_res:
                 lbl = "FAKE" if tfidf_res['pred'] == 1 else "REAL"
                 st.metric("Heuristic", lbl, f"{tfidf_res['prob_fake']:.1%} fake-prob", 
@@ -399,10 +400,10 @@ if st.button("🚀 RUN ANALYSIS", type="primary", use_container_width=True):
         with t1:
             c_old, c_new = st.columns(2)
             with c_old:
-                st.markdown("**Legacy Attention** (Raw)")
+                st.markdown("**Bert V1 Attention**")
                 if bert_res_old: st.pyplot(plot_attention_bar(bert_res_old['tokens'], bert_res_old['attention']))
             with c_new:
-                st.markdown("**V12 Attention** (Cleaned)")
+                st.markdown("**Bert V2 Attention**")
                 if bert_res_new: st.pyplot(plot_attention_bar(bert_res_new['tokens'], bert_res_new['attention']))
 
         with t2:

@@ -13,11 +13,13 @@ from sklearn.metrics import classification_report, confusion_matrix, roc_curve, 
 import logging
 from tqdm import tqdm
 import pandas as pd
+import config
 
-BASE = Path(__file__).parent.resolve()
-DATA = BASE / "data"
-MODELS = BASE / "models"; MODELS.mkdir(exist_ok=True)
-PLOTS = BASE / "plots";  PLOTS.mkdir(exist_ok=True)
+DATA = config.DATA_DIR
+MODELS = config.MODELS_DIR
+PLOTS = config.PLOTS_DIR
+
+
 
 # --- NEW CLEANING FUNCTION ---
 def clean_text(text):
@@ -147,7 +149,7 @@ def main():
 
     logging.info("Evaluating...")
     report = classification_report(y_te, y_pred, target_names=["REAL","FAKE"])
-    (BASE/"evaluation_tfidf_robust.txt").write_text(report)
+    (MODELS/"evaluation_tfidf_robust.txt").write_text(report)
     print("\n" + "="*60)
     print("ROBUST TF-IDF RESULTS")
     print("="*60)

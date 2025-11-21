@@ -4,14 +4,16 @@ from bertopic import BERTopic
 from sklearn.feature_extraction.text import CountVectorizer
 import re
 from tqdm import tqdm
+import config
 
 # --- CONFIG ---
-BASE = Path(__file__).parent.resolve()
-DATA = BASE / "data"
-MODELS = BASE / "models"
+DATA = config.DATA_DIR
+MODELS = config.MODELS_DIR
+PLOTS = config.PLOTS_DIR
+
 
 # --- REUSE YOUR CLEANING LOGIC ---
-def clean_text_v12(text):
+def clean_text(text):
     """
     Removes data artifacts that cause the model to 'cheat'.
     Removes signatures like 'WASHINGTON (Reuters) - '
@@ -35,7 +37,7 @@ def main():
     # df = df.sample(50000, random_state=42) 
     
     print("Cleaning data...")
-    docs = [clean_text_v12(t) for t in tqdm(df['text'], desc="Cleaning")]
+    docs = [clean_text(t) for t in tqdm(df['text'], desc="Cleaning")]
     # Remove short docs to prevent noise
     docs = [d for d in docs if len(d) > 50]
 
@@ -70,7 +72,7 @@ def main():
     
     # Save visualization (Optional)
     fig = topic_model.visualize_barchart(top_n_topics=10)
-    fig.write_html(BASE / "plots" / "topics.html")
+    fig.write_html(PLOTS / "topics.html")
 
 if __name__ == "__main__":
     main()

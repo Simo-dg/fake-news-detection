@@ -5,14 +5,14 @@ import pandas as pd
 import glob
 from pathlib import Path
 import numpy as np
+import config
 
-BASE = Path(__file__).parent.resolve()
-DATA = BASE / "data"
+# --- CONFIG ---
+DATA = config.DATA_DIR
+TARGET_SIZE = config.TARGET_SIZE
+TARGET_FAKE = config.TARGET_FAKE
+TARGET_REAL = config.TARGET_REAL
 
-# Configuration
-TARGET_SIZE = 200_000  
-TARGET_FAKE = TARGET_SIZE // 2  # 100k FAKE
-TARGET_REAL = TARGET_SIZE // 2  # 100k REAL
 
 print(f"{'='*80}")
 print(f"CREATING BALANCED DATASET")
@@ -20,7 +20,7 @@ print(f"{'='*80}")
 print(f"Target: {TARGET_SIZE:,} articles (50% FAKE, 50% REAL)")
 print(f"{'='*80}\n")
 
-# Carica tutti i file
+# Upload all parquet files
 parquet_files = sorted(glob.glob(str(DATA / "clean_df_part_*.parquet")))
 print(f"Loading {len(parquet_files)} parquet files...\n")
 

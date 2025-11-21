@@ -13,20 +13,21 @@ from transformers import (
 )
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 from sklearn.model_selection import train_test_split
+import config
 
 # --- CONFIGURATION ---
-BASE = Path(__file__).parent.resolve()
-DATA = BASE / "data"
-MODELS = BASE / "models"; MODELS.mkdir(exist_ok=True)
-
-MODEL_NAME = "distilbert-base-uncased"
-MAX_LENGTH = 512
-CHUNK_OVERLAP = 128
-BATCH_SIZE = 16
+DATA =config.DATA_DIR
+MODELS = config.MODELS_DIR
+MODEL_NAME = config.MODEL_NAME
+MAX_LENGTH = config.MAX_LENGTH
+CHUNK_OVERLAP = config.CHUNK_OVERLAP
+BATCH_SIZE = config.BATCH_SIZE
+DEVICE = config.DEVICE
+EPOCHS = config.EPOCHS
 
 # GPU Setup
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = DEVICE
 print(f"Using device: {device}")
 
 # --- HELPER FUNCTIONS ---
@@ -78,28 +79,13 @@ def make_doclevel_metric(eval_doc_ids):
             
             # Get logits for these chunks: Shape (num_chunks, 2)
             chunk_logits = logits[idx]
-            
             # --- SMART AGGREGATION LOGIC ---
-            
-            # OPTION A: Pure Max-Pooling (Most Aggressive)
-            # We look at the 'Fake' class (index 1). 
-            # We take the chunk that has the HIGHEST score for 'Fake'.
+            #Pure Max-Pooling (Most Aggressive)
             fake_scores = chunk_logits[:, 1] 
             best_chunk_idx = np.argmax(fake_scores)
             
             # We use the logits of that specific "most suspicious" chunk
             doc_logits_list.append(chunk_logits[best_chunk_idx])
-            
-            # --- OPTION B (Alternative): Top-3 Average (More Stable) ---
-            # If you find Option A is too noisy (too many false alarms),
-            # uncomment the lines below to average the top 3 most suspicious chunks.
-            # 
-            # sorted_indices = np.argsort(chunk_logits[:, 1])[::-1] # Sort desc by Fake score
-            # top_k = min(3, len(chunk_logits))
-            # top_logits = chunk_logits[sorted_indices[:top_k]]
-            # doc_logits_list.append(top_logits.mean(axis=0))
-            
-            # -------------------------------
 
             doc_labels_list.append(labels[idx][0])
             
@@ -260,7 +246,7 @@ def main():
         per_device_train_batch_size=BATCH_SIZE,
         per_device_eval_batch_size=BATCH_SIZE*2,
         gradient_accumulation_steps=4,
-        num_train_epochs=2,
+        num_train_epochs=EPOCHS,
         weight_decay=0.01,
         fp16=torch.cuda.is_available(),
         save_total_limit=1,

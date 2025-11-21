@@ -14,20 +14,21 @@ from transformers import (
 )
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 from sklearn.model_selection import train_test_split
+import config
 
 # --- CONFIGURATION ---
-BASE = Path(__file__).parent.resolve()
-DATA = BASE / "data"
-MODELS = BASE / "models"; MODELS.mkdir(exist_ok=True)
+DATA = config.DATA_DIR
+MODELS = config.MODELS_DIR
 
-MODEL_NAME = "distilbert-base-uncased"
-MAX_LENGTH = 512 
-BATCH_SIZE = 16 
-EPOCHS = 2
+MODEL_NAME = config.MODEL_NAME
+MAX_LENGTH = config.MAX_LENGTH
+BATCH_SIZE = config.BATCH_SIZE
+EPOCHS = config.EPOCHS
+DEVICE = config.DEVICE
 
 # Disable parallelism to avoid tokenizer warnings
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = DEVICE
 print(f"Using device: {device}")
 
 # --- CLEANING FUNCTION (V12: BERT OPTIMIZED) ---

@@ -6,12 +6,11 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from bertopic import BERTopic
-from sklearn.metrics.pairwise import cosine_similarity
+import config
 
 # --- CONFIGURATION ---
-BASE = Path(__file__).parent.resolve()
-MODELS = BASE / "models"
-PLOTS = BASE / "plots"; PLOTS.mkdir(exist_ok=True)
+MODELS = config.MODELS_DIR
+PLOTS = config.PLOTS_DIR
 
 # Styling
 plt.style.use('seaborn-v0_8-whitegrid')
