@@ -18,7 +18,6 @@ from src import config
 # --- CONFIGURATION ---
 st.set_page_config(page_title="🛡️ TruthLens Command Center", layout="wide", initial_sidebar_state="collapsed")
 
-
 MODELS = config.MODELS_DIR
 
 # Model Paths
@@ -30,25 +29,47 @@ DEVICE = config.DEVICE
 MAX_LENGTH = config.MAX_LENGTH
 CHUNK_OVERLAP = config.CHUNK_OVERLAP
 
-# --- CSS STYLING ---
+# --- IMPROVED CSS STYLING (DARK MODE COMPATIBLE) ---
 st.markdown("""
 <style>
-    .main { background-color: #f9f9f9; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #eee; }
-    h1 { color: #1E1E1E; font-family: 'Helvetica Neue', sans-serif; }
+    /* 1. Remove hardcoded backgrounds on main to allow Dark Mode to work naturally */
+    /* 2. Fix Metric styling to adapt to theme or look good on both */
+    div[data-testid="stMetric"] {
+        background-color: rgba(128, 128, 128, 0.1); /* Semi-transparent grey */
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid rgba(128, 128, 128, 0.2);
+    }
+    
+    /* 3. Badges: Keep these hardcoded as they have specific background colors */
     .verdict-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
     .badge-sup { background-color: #e6f4ea; color: #1e8e3e; border: 1px solid #1e8e3e; }
     .badge-ref { background-color: #fce8e6; color: #d93025; border: 1px solid #d93025; }
     .badge-neu { background-color: #f1f3f4; color: #5f6368; border: 1px solid #5f6368; }
-    .source-card { background-color: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; }
+
+    /* 4. Source Card: Force BLACK text on WHITE background regardless of Theme */
+    .source-card { 
+        background-color: #ffffff; 
+        color: #31333F; /* Force dark text */
+        padding: 15px; 
+        border-radius: 8px; 
+        margin-bottom: 10px; 
+        border: 1px solid #ddd; 
+    }
+    
+    /* Ensure links inside source cards are visible on white background */
+    .source-card a {
+        color: #1565c0 !important;
+    }
+    
+    .source-card .snippet {
+        color: #555555 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 1) CLEANING FUNCTION (V12 STRICT) ---
 def clean_text_bert(text):
-    """
-    V12 Cleaning Logic. 
-    """
     if not isinstance(text, str): return ""
     text = text.lower()
     
@@ -91,7 +112,6 @@ def clean_text_bert(text):
 @st.cache_resource
 def load_bert_models():
     models = {}
-    # Legacy
     try:
         tok_old = AutoTokenizer.from_pretrained(HF_MODEL_ID)
         mdl_old = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_ID).to(DEVICE)
@@ -99,9 +119,7 @@ def load_bert_models():
         models['legacy'] = (tok_old, mdl_old)
     except Exception: pass
 
-    # New V12
     try:
-        print(f"Downloading V2 Model: {HF_MODEL_ID_V2}...")
         tok_new = AutoTokenizer.from_pretrained(HF_MODEL_ID_V2)
         mdl_new = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_ID_V2).to(DEVICE)
         mdl_new.eval()
@@ -116,8 +134,6 @@ def load_tfidf_model():
 
 @st.cache_resource
 def load_nli_model():
-    # Using DeBERTa V3 Small for NLI
-    # Labels mapping usually: 0: Contradiction, 1: Entailment, 2: Neutral
     return CrossEncoder('cross-encoder/nli-deberta-v3-small')
 
 @st.cache_resource
@@ -182,7 +198,7 @@ def analyze_tfidf(text, pipeline):
         return {"pred": pred, "prob_fake": float(probs[1]), "features": feats[:20]}
     except: return None
 
-# --- 4) SEARCH & FACT CHECK (FIXED) ---
+# --- 4) SEARCH & FACT CHECK ---
 
 def perform_search(q, region="us-en", timelimit=None):
     results = []
@@ -190,7 +206,6 @@ def perform_search(q, region="us-en", timelimit=None):
         with DDGS() as ddgs:
             kwargs = dict(region=region, safesearch='moderate', max_results=5)
             if timelimit: kwargs["timelimit"] = timelimit
-            # We search for NEWS to get relevant context
             ddg_results = list(ddgs.news(q, **kwargs))
             for r in ddg_results:
                 body = r.get('body', r.get('snippet', ''))
@@ -205,10 +220,6 @@ def perform_search(q, region="us-en", timelimit=None):
     return results
 
 def verify_facts(text, nli_model, region="us-en", timelimit=None):
-    """
-    Improved verification: scores EACH article individually.
-    """
-    # Extract first 250 chars as the core claim for query
     claim = text[:250]
     raw_results = perform_search(claim, region=region, timelimit=timelimit)
     
@@ -216,20 +227,10 @@ def verify_facts(text, nli_model, region="us-en", timelimit=None):
         return {"status": "NO_DATA", "verdict": "UNVERIFIED", "confidence": 0.0, "evidence": []}
 
     processed_evidence = []
-    
-    # Prepare pairs for batch prediction [Claim, Evidence 1], [Claim, Evidence 2]...
     pairs = [(claim, r['text']) for r in raw_results]
-    
-    # Get Logits
     logits = nli_model.predict(pairs)
-    # Convert to Probs
     probs = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
 
-    # Mapping for 'cross-encoder/nli-deberta-v3-small':
-    # Index 0: Contradiction
-    # Index 1: Entailment
-    # Index 2: Neutral
-    
     total_entail = 0.0
     total_contra = 0.0
 
@@ -238,7 +239,6 @@ def verify_facts(text, nli_model, region="us-en", timelimit=None):
         p_entail = probs[i][1]
         p_neut = probs[i][2]
         
-        # Determine individual label
         if p_entail > 0.5: 
             label = "SUPPORT"
             score = p_entail
@@ -261,12 +261,9 @@ def verify_facts(text, nli_model, region="us-en", timelimit=None):
             "score": score,
             "badge_class": badge_class
         })
-        
-        # Accumulate for global verdict (weighted)
         total_entail += p_entail
         total_contra += p_contra
 
-    # Global Verdict Logic
     avg_entail = total_entail / len(raw_results)
     avg_contra = total_contra / len(raw_results)
     
@@ -284,20 +281,25 @@ def verify_facts(text, nli_model, region="us-en", timelimit=None):
         "status": "SUCCESS",
         "verdict": global_verdict,
         "confidence": global_conf,
-        "evidence": processed_evidence # Now contains per-article details
+        "evidence": processed_evidence 
     }
 
-# --- 5) VISUALIZATIONS ---
+# --- 5) VISUALIZATIONS (Updated for Visibility) ---
 
 def plot_attention_bar(tokens, scores):
     clean = [(t, s) for t, s in zip(tokens, scores) if t not in ['[CLS]', '[SEP]', '[PAD]']]
     if not clean: return plt.figure()
     c_tokens, c_scores = zip(*clean)
-    fig, ax = plt.subplots(figsize=(10, 3))
+    
+    # Facecolor white ensures labels are black and visible on dark backgrounds
+    fig, ax = plt.subplots(figsize=(10, 3), facecolor='white') 
     ax.bar(range(len(c_tokens[:20])), c_scores[:20], color=Blues(c_scores[:20]))
     ax.set_xticks(range(len(c_tokens[:20])))
-    ax.set_xticklabels(c_tokens[:20], rotation=45, ha='right')
+    ax.set_xticklabels(c_tokens[:20], rotation=45, ha='right', color='black')
+    ax.tick_params(axis='y', colors='black')
     ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_color('black')
+    ax.spines['left'].set_color('black')
     plt.tight_layout()
     return fig
 
@@ -305,10 +307,17 @@ def plot_tfidf_importance(features):
     if not features: return plt.figure()
     words = [f[0] for f in features[:15]][::-1]
     scores = [f[1] for f in features[:15]][::-1]
-    fig, ax = plt.subplots(figsize=(8, 5))
+    
+    # Facecolor white ensures labels are black and visible on dark backgrounds
+    fig, ax = plt.subplots(figsize=(8, 5), facecolor='white')
     colors = ['#d32f2f' if s > 0 else '#388e3c' for s in scores]
     ax.barh(words, scores, color=colors)
     ax.axvline(0, color='black', linewidth=0.8)
+    ax.tick_params(axis='x', colors='black')
+    ax.tick_params(axis='y', colors='black')
+    ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_color('black')
+    ax.spines['left'].set_color('black')
     plt.tight_layout()
     return fig
 
@@ -318,7 +327,7 @@ st.title("🛡️ TruthLens: Forensic News Dashboard")
 
 with st.sidebar:
     st.header("Configuration")
-    region_sel = st.selectbox("Search Region", ["us-en","uk-en","it-it","de-de","fr-fr"], index=0)
+    # Region selection removed
     recency_sel = st.selectbox("Recency", ["Any time", "Past day", "Past week", "Past month"], index=0)
     recency_map = {"Any time": None, "Past day": "d", "Past week": "w", "Past month": "m"}
 
@@ -328,7 +337,6 @@ if st.button("🚀 RUN ANALYSIS", type="primary", use_container_width=True):
     if not text.strip():
         st.warning("⚠️ Please enter text.")
     else:
-        # Load Models
         bert_models = load_bert_models()
         tfidf_pipe = load_tfidf_model()
         nli_mdl = load_nli_model()
@@ -349,16 +357,15 @@ if st.button("🚀 RUN ANALYSIS", type="primary", use_container_width=True):
             # 3. TF-IDF
             tfidf_res = analyze_tfidf(text, tfidf_pipe)
             
-            # 4. Fact Check (Updated with individual scoring)
-            fact_res = verify_facts(text, nli_mdl, region=region_sel, timelimit=recency_map[recency_sel])
+            # 4. Fact Check
+            fact_res = verify_facts(text, nli_mdl, region="us-en", timelimit=recency_map[recency_sel])
 
-            # 5. BERTopic Analysis
+            # 5. BERTopic
             topic_viz = None
             topic_info = None
             if bertopic_model:
                 topics, probs = bertopic_model.transform([text])
                 topic_id = topics[0]
-                # Get fancy Plotly viz
                 topic_viz = bertopic_model.visualize_barchart(top_n_topics=8, topics=[topic_id])
                 topic_info = bertopic_model.get_topic_info(topic_id)
 
@@ -412,38 +419,34 @@ if st.button("🚀 RUN ANALYSIS", type="primary", use_container_width=True):
                 st.pyplot(plot_tfidf_importance(tfidf_res['features']))
 
         with t3:
-            # --- NEW IMPROVED EVIDENCE DISPLAY ---
             st.markdown("#### Web Verification Results")
             if fact_res['status'] == "NO_DATA":
                 st.warning("No search results found.")
             else:
                 for item in fact_res['evidence']:
-                    # HTML Badge construction
                     badge = f'<span class="verdict-badge {item["badge_class"]}">{item["label"]} ({item["score"]:.0%})</span>'
                     
-                    with st.container():
-                        st.markdown(f"""
-                        <div class="source-card">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <b>{item['source']}</b>
-                                {badge}
-                            </div>
-                            <div style="font-size:1.1em; color:#1565c0; margin-top:5px;">
-                                <a href="{item['url']}" target="_blank" style="text-decoration:none;">{item['title']}</a>
-                            </div>
-                            <div style="font-size:0.9em; color:#555; margin-top:5px;">
-                                {item['snippet'][:250]}...
-                            </div>
+                    # Updated HTML with forced colors to handle white background in dark mode
+                    st.markdown(f"""
+                    <div class="source-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <b>{item['source']}</b>
+                            {badge}
                         </div>
-                        """, unsafe_allow_html=True)
+                        <div style="font-size:1.1em; margin-top:5px;">
+                            <a href="{item['url']}" target="_blank" style="text-decoration:none; color: #1565c0;">{item['title']}</a>
+                        </div>
+                        <div class="snippet" style="font-size:0.9em; color: #555555; margin-top:5px;">
+                            {item['snippet'][:250]}...
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
         with t4:
-            # --- NEW BERTOPIC DISPLAY ---
             if bertopic_model:
                 st.subheader(f"Topic Identification: {topic_info['Name'].values[0]}")
                 st.markdown(f"**Topic ID:** {topic_info['Topic'].values[0]} | **Count:** {topic_info['Count'].values[0]}")
                 
-                # Display the Interactive Plotly Chart
                 if topic_viz:
                     st.plotly_chart(topic_viz, use_container_width=True)
                 
