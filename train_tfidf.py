@@ -10,7 +10,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
-from utils_data import load_true_fake
 
 BASE = Path(__file__).parent.resolve()
 DATA = BASE / "data"
@@ -18,7 +17,8 @@ MODELS = BASE / "models"; MODELS.mkdir(exist_ok=True)
 PLOTS = BASE / "plots";  PLOTS.mkdir(exist_ok=True)
 
 def main():
-    df = load_true_fake(DATA/"True.csv", DATA/"Fake.csv")
+    import pandas as pd
+    df = pd.read_parquet(DATA/"balanced_dataset_200k.parquet")
     X_tr, X_te, y_tr, y_te = train_test_split(df.text, df.label, test_size=0.2,
                                               stratify=df.label, random_state=42)
 

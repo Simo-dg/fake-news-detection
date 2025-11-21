@@ -13,7 +13,6 @@ from transformers import (
 )
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 from sklearn.model_selection import train_test_split
-from utils_data import load_true_fake  # Ensure this file exists or replace with your loading logic
 
 # --- CONFIGURATION ---
 BASE = Path(__file__).parent.resolve()
@@ -109,7 +108,7 @@ def make_doclevel_metric(eval_doc_ids):
 
 def load_data(data_dir):
     """Loads data prioritizing the balanced parquet file."""
-    balanced_file = data_dir / "balanced_dataset_500k.parquet"
+    balanced_file = data_dir / "balanced_dataset_200k.parquet"
     
     if balanced_file.exists():
         print(f"Loading balanced dataset: {balanced_file.name}")
@@ -119,7 +118,7 @@ def load_data(data_dir):
         parquet_files = sorted(glob.glob(str(data_dir / "clean_df_part_*.parquet")))
         if not parquet_files:
             # Fallback to CSV if no parquet
-            return load_true_fake(data_dir/"True.csv", data_dir/"Fake.csv")
+            raise FileNotFoundError("Nessun file parquet o CSV trovato per il caricamento dei dati.")
         # Load just first file for testing, or all for full training
         dfs = [pd.read_parquet(f) for f in parquet_files[:2]] # Limit to 2 files if debugging
         df = pd.concat(dfs, ignore_index=True)

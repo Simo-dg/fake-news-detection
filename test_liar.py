@@ -7,8 +7,7 @@ from sklearn.metrics import classification_report, accuracy_score
 from tqdm import tqdm
 
 # --- CONFIGURATION ---
-# YOUR MODEL ID ON HUGGING FACE
-MODEL_ID = "Simingasa/fake-news-bert-finetuned"
+MODEL_PATH = "models/bert_final"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 32
@@ -35,7 +34,7 @@ def main():
     print(f"Using device: {DEVICE}")
     
     # 1. LOAD LIAR DATASET
-    print("\n⬇️  Downloading LIAR dataset from Hugging Face...")
+    print("\n Downloading LIAR dataset from Hugging Face...")
     dataset = load_dataset("liar")
     
     # We only need the 'test' split
@@ -43,24 +42,24 @@ def main():
     print(f"Original Test Size: {len(df_test)}")
     
     # 2. PREPROCESS LABELS
-    print("🔄 Mapping labels (6-class -> Binary)...")
+    print(" Mapping labels (6-class -> Binary)...")
     df_test['binary_label'] = df_test.apply(map_liar_labels, axis=1)
     
     print("Class Distribution:")
     print(df_test['binary_label'].value_counts().rename({0: 'REAL', 1: 'FAKE'}))
     
     # 3. LOAD YOUR MODEL FROM HUB
-    print(f"\n🤖 Downloading your model: {MODEL_ID}...")
+    print(f"\n Uploading model from {MODEL_PATH} ...")
     try:
-        tok = AutoTokenizer.from_pretrained(MODEL_ID)
-        model = AutoModelForSequenceClassification.from_pretrained(MODEL_ID).to(DEVICE)
+        tok = AutoTokenizer.from_pretrained(MODEL_PATH)
+        model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH).to(DEVICE)
         model.eval()
     except Exception as e:
-        print(f"❌ Error loading model: {e}")
+        print(f" Error loading model: {e}")
         return
 
     # 4. RUN PREDICTION LOOP
-    print("\n🚀 Running Inference on LIAR statements...")
+    print("\n Running Inference on LIAR statements...")
     predictions = []
     texts = df_test['statement'].tolist()
     
@@ -89,7 +88,7 @@ def main():
     acc = accuracy_score(y_true, y_pred)
     
     print("\n" + "="*60)
-    print(f"FINAL RESULTS: {MODEL_ID} vs LIAR")
+    print(f"FINAL RESULTS: bert_final vs LIAR")
     print("="*60)
     print(f"ACCURACY: {acc:.2%}")
     print("-" * 60)
