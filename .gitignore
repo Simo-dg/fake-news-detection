@@ -1,5 +1,7 @@
 data/
-models/
+models/bert_final
+models/bert_finetuned
+models/bertopic_topic_info.csv
 *.safetensors
 *.bin
 *.pt
