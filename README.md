@@ -15,7 +15,7 @@ Unlike standard classifiers, TruthLens focuses on **forensic text analysis**—c
 
 ## ✨ Features
 
-- **Forensic Cleaning (V12 Strict)**: Removes UI leaks, wire-service prefixes, metadata, and temporal markers to avoid shortcut learning.
+- **Forensic Cleaning**: Removes UI leaks, wire-service prefixes, metadata, and temporal markers to avoid shortcut learning.
 - **Deep + Heuristic Stack**: BERT classifier + TF-IDF baseline + BERTopic clusters for interpretability.
 - **Interactive Dashboard**: One-click Streamlit app with automatic model download on first run.
 - **Reproducible Pipeline**: End-to-end scripts for dataset prep, training, evaluation, and topic visualization.
@@ -36,7 +36,7 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 # 3) Launch the Command Center
-streamlit run src/app.py
+streamlit run app.py
 ```
 
 - The app opens at **http://localhost:8501**.
@@ -55,7 +55,6 @@ TruthLens/
 ├── models/                    # Trained weights and checkpoints
 ├── plots/                     # Generated evaluation figures
 ├── src/
-│   ├── app.py                 # Streamlit dashboard
 │   ├── config.py              # Paths & hyperparameters
 │   ├── create_balanced_dataset.py  # Data balancing pipeline
 │   ├── train_bert_v2.py       # MAIN training (Forensic BERT, V12 Strict)
@@ -64,6 +63,7 @@ TruthLens/
 │   ├── evaluate_models.py     # Confusion matrices, ROC, calibration
 │   ├── visualize_topics.py    # Topic charts/exports
 │   └── upload.py              # Hugging Face Hub uploader
+├── app.py                     # Streamlit dashboard
 ├── requirements.txt
 └── README.md
 ```
@@ -87,7 +87,15 @@ python src/create_balanced_dataset.py
 ### 2) Model Training
 
 **Forensic BERT (V2) — Primary Model**  
-Trained with **V12 Strict** cleaning to remove forensic artifacts.
+Trained with data without punctuation.
+
+```bash
+python src/train_bert_v1.py
+# Output: models/bert_finetuned/
+```
+
+**Forensic BERT (V2) — Primary Model**  
+Trained with **Strict** cleaning to remove artifacts.
 
 ```bash
 python src/train_bert_v2.py
@@ -164,54 +172,18 @@ python src/upload.py
 
 ---
 
-## 🔧 Configuration
-
-Minimal example for `src/config.py` (adapt to your paths):
-
-```python
-from pathlib import Path
-import os
-
-# Paths
-ROOT_DIR = Path(__file__).resolve().parents[1]
-DATA_DIR = ROOT_DIR / "data"
-MODELS_DIR = ROOT_DIR / "models"
-PLOTS_DIR = ROOT_DIR / "plots"
-
-# Training
-SEED = 42
-BATCH_SIZE = 16
-LR = 2e-5
-MAX_LEN = 256
-EPOCHS = 3
-MODEL_NAME = "bert-base-uncased"  # or a multilingual variant
-
-# Forensic Cleaning Flags (V12 Strict)
-CLEAN_REMOVE_AGENCY = True
-CLEAN_REMOVE_UI_LEAKS = True
-CLEAN_REMOVE_METADATA = True
-CLEAN_STRIP_MONTHS = True
-
-# Hugging Face Hub
-HF_TOKEN = os.getenv("HUGGINGFACE_HUB_TOKEN")  # never hard-code
-HF_MODEL_ID = "YourUser/fake-news-bert-finetuned"
-HF_MODEL_ID_V2 = "YourUser/fake-news-bert-v2"
-```
-
----
-
 ## 🚀 CLI Recipes
 
 **Train + Evaluate end-to-end**
 
 ```bash
-python src/train_bert_v2.py  && python src/train_tfidf.py  && python src/train_topics.py  && python src/evaluate_models.py
+python src/train_bert_v2.py && python src/train_bert_v2.py  && python src/train_tfidf.py  && python src/train_topics.py  && python src/evaluate_models.py
 ```
 
 **Run Dashboard after training**
 
 ```bash
-streamlit run src/app.py
+streamlit run app.py
 ```
 
 **Upload trained models**
@@ -265,27 +237,6 @@ This project is released under the **MIT License**. See `LICENSE` for details.
 
 ---
 
-## 📣 Citation
+## 🧑🏻‍💻 Author
 
-If you use TruthLens in academic work, please cite this repository:
-
-```bibtex
-@software{truthlens_2025,
-  author = {Your Name},
-  title = {TruthLens: Forensic Fake News Detection System},
-  year = {2025},
-  url = {https://github.com/yourname/truthlens}
-}
-```
-
----
-
-## 📨 Contact
-
-- Issues/Features: Open a GitHub Issue
-- Maintainer: your.email@example.com
-
----
-
-> **Note on security & uploads:**  
-> Others can **not** upload to your Hugging Face repos unless they have a **write token** or collaborator access. If someone runs your scripts without such access, uploads will fail—or create repos **under their own account** if `repo_id` isn’t owner-prefixed.
+Simone De Giorgi - [GitHub](https://github.com/simo-dg) | [LinkedIn](https://www.linkedin.com/in/simone-de-giorgi/)
