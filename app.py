@@ -367,14 +367,14 @@ if st.button("🚀 RUN ANALYSIS", type="primary", use_container_width=True):
         c1, c2, c3, c4 = st.columns(4)
         
         with c1:
-            st.markdown("### 👴 Legacy BERT")
+            st.markdown("### ✅ V1 BERT")
             if bert_res_old:
                 lbl = "FAKE" if bert_res_old['pred'] == 1 else "REAL"
                 st.metric("Model Verdict", lbl, f"{bert_res_old['prob_fake']:.1%} fake-prob", 
                           delta_color="inverse" if lbl == "FAKE" else "normal")
 
         with c2:
-            st.markdown("### 🚀 V12 BERT")
+            st.markdown("### ✈️ V2 BERT")
             if bert_res_new:
                 lbl = "FAKE" if bert_res_new['pred'] == 1 else "REAL"
                 st.metric("Model Verdict", lbl, f"{bert_res_new['prob_fake']:.1%} fake-prob", 

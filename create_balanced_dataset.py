@@ -9,7 +9,7 @@ import numpy as np
 BASE = Path(__file__).parent.resolve()
 DATA = BASE / "data"
 
-# Configurazione
+# Configuration
 TARGET_SIZE = 200_000  
 TARGET_FAKE = TARGET_SIZE // 2  # 100k FAKE
 TARGET_REAL = TARGET_SIZE // 2  # 100k REAL

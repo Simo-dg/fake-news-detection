@@ -82,97 +82,6 @@ def plot_topic_sizes(topic_model, top_n=20):
     print(f"Saved {out_path}")
     plt.close()
 
-def plot_similarity_heatmap(topic_model, top_n=15):
-    """
-    Heatmap showing which topics are semantically similar.
-    """
-    print("Generating Similarity Heatmap...")
-    
-    # Get topic embeddings
-    topic_info = topic_model.get_topic_info()
-    # Filter top N topics (excluding outlier)
-    top_indices = topic_info[topic_info['Topic'] != -1].head(top_n)['Topic'].tolist()
-    
-    # Extract embeddings for these specific topics
-    # Note: topic_embeddings_ is a list ordered by topic ID usually, 
-    # but let's be safe and use the internal c-TF-IDF matrix if embeddings aren't cached
-    
-    if topic_model.topic_embeddings_ is not None:
-        # Map topic IDs to embedding indices
-        # This can be tricky in BERTopic versions. 
-        # Safer way: calculate cosine sim of c-TF-IDF for the selected topics
-        pass
-    
-    # EASIER METHOD: Use BERTopic's internal similarity matrix calculation
-    # but implement plotting manually for better style
-    
-    # We will manually compute similarity between the topic words (c-TF-IDF)
-    # topic_model.c_tfidf_ is a sparse matrix (n_topics, n_words)
-    
-    # Get the row indices corresponding to our top topics
-    # topic_model.topic_mapper_ maps Topic ID -> Matrix Row Index
-    # But usually Topic ID + 1 = Matrix Row Index (since -1 is at 0)
-    # Let's trust the library's built-in helper if possible, or build a simple matrix
-    
-    try:
-        # c-TF-IDF matrix
-        tfidf = topic_model.c_tfidf_
-        
-        # Get indices for top_n topics. 
-        # The topic_info['Topic'] is the actual topic ID.
-        # We need to find where they are in the sparse matrix.
-        # Usually, the model stores a mapping, or we can just iterate.
-        # Let's rely on the text content for a safe visualization if matrix logic is opaque.
-        
-        # ACTUALLY, let's just use the embeddings if available, 
-        # if not, we skip this plot to avoid errors.
-        if topic_model.topic_embeddings_ is not None:
-            # Filter embeddings for top_n topics
-            # This assumes topic_embeddings_ is aligned with topic_info
-            # We will skip the complexity and plot a simple correlation of the TOP WORDS
-            pass
-            
-    except Exception as e:
-        print(f"Skipping heatmap due to data access complexity: {e}")
-        return
-
-    # If we are here, let's just use the built-in visualize_heatmap data if we could,
-    # but since we want "Beautiful Static Plots", let's create a visual 
-    # based on the top 10 topics' cosine similarity
-    
-    # Simplify:
-    matrix = cosine_similarity(topic_model.c_tfidf_)
-    
-    # The matrix includes the outlier at index 0 or similar.
-    # Let's just grab the top N rows/cols
-    # topic_info sorted by count gives us the IDs we want.
-    
-    target_ids = top_indices # e.g. [0, 1, 2...]
-    # We need to map these IDs to the matrix indices.
-    # In BERTopic, row index = topic_id + 1 (usually, because -1 is index 0)
-    # Let's verify:
-    
-    valid_indices = [tid + 1 for tid in target_ids if (tid + 1) < matrix.shape[0]]
-    
-    if not valid_indices:
-        return
-
-    sub_matrix = matrix[np.ix_(valid_indices, valid_indices)]
-    
-    plt.figure(figsize=(10, 8))
-    labels = [f"Topic {tid}" for tid in target_ids]
-    
-    sns.heatmap(sub_matrix, xticklabels=labels, yticklabels=labels, 
-                cmap="RdBu_r", annot=True, fmt=".2f", vmin=0, vmax=1)
-    
-    plt.title(f"Semantic Similarity of Top {top_n} Topics", fontsize=16, fontweight='bold')
-    plt.tight_layout()
-    
-    out_path = PLOTS / "topics_similarity.png"
-    plt.savefig(out_path, dpi=200)
-    print(f"Saved {out_path}")
-    plt.close()
-
 def main():
     print(f"Loading model from {MODELS}...")
     try:
@@ -186,10 +95,6 @@ def main():
 
     # 2. Plot Topic Sizes (The "How Many")
     plot_topic_sizes(topic_model, top_n=15)
-
-    # 3. Plot Similarity (The "Relationships")
-    # Note: Requires c-TF-IDF matrix which is standard in the model
-    plot_similarity_heatmap(topic_model, top_n=10)
     
     print("\n✅ Visualization Complete. Check the 'plots' folder.")
 

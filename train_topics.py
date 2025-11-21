@@ -55,8 +55,14 @@ def main():
     topic_model.fit_transform(docs)
 
     print("Saving model...")
-    # Safetensors serialization is safer/faster
+    # Save the model with safetensors for efficiency
     topic_model.save(MODELS / "bertopic_model", serialization="safetensors")
+    # Save topic info and c_tf_idf_ as CSV and NPY
+    topic_info = topic_model.get_topic_info()
+    topic_info.to_csv(MODELS / "bertopic_topic_info.csv", index=False)
+    if getattr(topic_model, "c_tf_idf_", None) is not None:
+        import numpy as np
+        np.save(MODELS / "bertopic_c_tf_idf.npy", topic_model.c_tf_idf_)
     
     # Print info
     freq = topic_model.get_topic_info()
