@@ -41,4 +41,6 @@ TARGET_REAL = TARGET_SIZE // 2
 # Hugging Face Hub IDs
 HF_MODEL_ID = "Simingasa/fake-news-bert-finetuned"
 HF_MODEL_ID_V2 = "Simingasa/fake-news-bert-v2"
+REPO_BERTOPIC = "Simingasa/fake-news-bertopic"
+REPO_TFIDF = "Simingasa/fake-news-tfidf-logreg"
 

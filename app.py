@@ -13,6 +13,7 @@ from duckduckgo_search import DDGS
 from matplotlib.cm import Blues
 from urllib.parse import urlparse
 from bertopic import BERTopic
+from huggingface_hub import hf_hub_download  # Added for downloading TF-IDF
 from src import config
 
 # --- CONFIGURATION ---
@@ -129,8 +130,16 @@ def load_bert_models():
 
 @st.cache_resource
 def load_tfidf_model():
-    path = MODELS / "tfidf_logreg_robust.joblib"
-    return joblib.load(path) if path.exists() else None
+    """Downloads and loads the TF-IDF pipeline from Hugging Face."""
+    try:
+        model_path = hf_hub_download(
+            repo_id="Simingasa/fake-news-tfidf-logreg", 
+            filename="tfidf_logreg_robust.joblib"
+        )
+        return joblib.load(model_path)
+    except Exception as e:
+        st.error(f"Error loading TF-IDF model from Hub: {e}")
+        return None
 
 @st.cache_resource
 def load_nli_model():
@@ -138,10 +147,13 @@ def load_nli_model():
 
 @st.cache_resource
 def load_bertopic_model():
-    path = MODELS / "bertopic_model"
-    if path.exists():
-        return BERTopic.load(path)
-    return None
+    """Loads BERTopic directly from Hugging Face."""
+    try:
+        # BERTopic handles HF download internally if given a repo ID
+        return BERTopic.load("Simingasa/fake-news-bertopic")
+    except Exception as e:
+        st.error(f"Error loading BERTopic model from Hub: {e}")
+        return None
 
 # --- 3) ANALYTICS ---
 
