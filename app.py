@@ -13,7 +13,7 @@ from duckduckgo_search import DDGS
 from matplotlib.cm import Blues
 from urllib.parse import urlparse
 from bertopic import BERTopic
-from huggingface_hub import hf_hub_download  # Added for downloading TF-IDF
+from huggingface_hub import hf_hub_download
 from src import config
 
 # --- CONFIGURATION ---
@@ -155,7 +155,7 @@ def load_bertopic_model():
         st.error(f"Error loading BERTopic model from Hub: {e}")
         return None
 
-# --- 3) ANALYTICS ---
+# --- 3) ANALYTICS (MODIFIED FOR MAX POOLING) ---
 
 def analyze_bert(text, tok, mdl):
     encoded = tok(text, truncation=True, max_length=MAX_LENGTH, stride=CHUNK_OVERLAP, 
@@ -177,11 +177,18 @@ def analyze_bert(text, tok, mdl):
                 attentions.append(np.zeros_like(inp_ids[0].cpu().numpy(), dtype=float))
             input_ids_list.append(encoded["input_ids"][i])
 
-    avg_logits = np.mean(chunk_logits, axis=0)
-    exps = np.exp(avg_logits - np.max(avg_logits))
+    # --- UPDATED TO MAX POOLING ---
+    if len(chunk_logits) > 0:
+        # Take the maximum logit across all chunks for each class.
+        # This makes the model more sensitive to "peaks" of fake content.
+        final_logits = np.max(chunk_logits, axis=0)
+    else:
+        final_logits = np.zeros(2) # Fallback
+
+    exps = np.exp(final_logits - np.max(final_logits))
     probs = exps / np.sum(exps)
-    pred = int(np.argmax(avg_logits))
-    tokens = tok.convert_ids_to_tokens(input_ids_list[0])
+    pred = int(np.argmax(final_logits))
+    tokens = tok.convert_ids_to_tokens(input_ids_list[0]) if input_ids_list else []
 
     return {
         "pred": pred,
